@@ -1,0 +1,6 @@
+{
+  "trigger_rate_should": 1.0,
+  "hold_rate_should_not": 1.0,
+  "should_count": 5,
+  "cases": 10
+}
