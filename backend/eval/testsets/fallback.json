@@ -1,0 +1,74 @@
+[
+  {
+    "query": "Explain the latest AWS us-east-1 outage impact on GitHub Actions",
+    "docs": [
+      "event=WatchEvent | repo=random/repo | actor=bob | action=started"
+    ],
+    "should_fallback": true
+  },
+  {
+    "query": "Why did my private Jenkins job fail last night?",
+    "docs": [
+      "event=PushEvent | repo=kubernetes/kubernetes | actor=k8s-ci-robot | commits=1"
+    ],
+    "should_fallback": true
+  },
+  {
+    "query": "Historical root cause of the 2021 Fastly CDN outage",
+    "docs": [
+      "event=IssuesEvent | repo=facebook/react | action=opened | title=hook bug"
+    ],
+    "should_fallback": true
+  },
+  {
+    "query": "What does conclusion=failure mean for microsoft/vscode workflows in these logs?",
+    "docs": [
+      "event=WorkflowRunEvent | repo=microsoft/vscode | conclusion=failure | name=CI | at=2024-06-01T10:00:00Z",
+      "event=WorkflowRunEvent | repo=microsoft/vscode | conclusion=failure | name=CI | at=2024-06-01T10:10:00Z"
+    ],
+    "should_fallback": false
+  },
+  {
+    "query": "Summarize push activity on redis/redis from the docs",
+    "docs": [
+      "event=PushEvent | repo=redis/redis | actor=antirez | commits=2 | messages=fix RDB | optimize AOF"
+    ],
+    "should_fallback": false
+  },
+  {
+    "query": "Are there issue opens against denoland/deno about memory leaks?",
+    "docs": [
+      "event=IssuesEvent | repo=denoland/deno | action=opened | title=memory leak in fetch"
+    ],
+    "should_fallback": false
+  },
+  {
+    "query": "How do I rotate AWS IAM keys after a leak?",
+    "docs": [
+      "event=ForkEvent | repo=torvalds/linux | actor=x"
+    ],
+    "should_fallback": true
+  },
+  {
+    "query": "PR merges listed for rust-lang/rust",
+    "docs": [
+      "event=PullRequestEvent | repo=rust-lang/rust | action=closed | merged=True | title=Stabilize"
+    ],
+    "should_fallback": false
+  },
+  {
+    "query": "Explain Kubernetes etcd quorum loss recovery steps from first principles",
+    "docs": [
+      "event=WatchEvent | repo=golang/go | action=started"
+    ],
+    "should_fallback": true
+  },
+  {
+    "query": "Workflow failure burst on hashicorp/terraform in local logs",
+    "docs": [
+      "event=WorkflowRunEvent | repo=hashicorp/terraform | conclusion=failure | name=build",
+      "event=WorkflowRunEvent | repo=hashicorp/terraform | conclusion=failure | name=test"
+    ],
+    "should_fallback": false
+  }
+]
