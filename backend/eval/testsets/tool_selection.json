@@ -1,0 +1,26 @@
+[
+  {"incident": "Pod crashlooping after OOMKilled in namespace prod, service api-gateway", "correct_tool": "restart_pod"},
+  {"incident": "Suspicious scraper hitting auth endpoints from 203.0.113.44", "correct_tool": "block_ip"},
+  {"incident": "Error rate spiked right after deploying payments-v2.4.1, roll back needed", "correct_tool": "rollback_deploy"},
+  {"incident": "Checkout service CPU pegged under Black Friday traffic, need more pods", "correct_tool": "scale_replica"},
+  {"incident": "Sev1: cascading failures across regions, root cause unclear, need a human", "correct_tool": "page_oncall"},
+  {"incident": "Mild increase in WatchEvents on a public repo, no outage", "correct_tool": "none"},
+  {"incident": "Unhealthy replica stuck, kubectl describe shows CrashLoopBackOff on worker-7", "correct_tool": "restart_pod"},
+  {"incident": "Botnet scanning from 198.51.100.10 causing 429 storms", "correct_tool": "block_ip"},
+  {"incident": "Bad feature flag shipped with web-frontend release, customers broken", "correct_tool": "rollback_deploy"},
+  {"incident": "Queue depth rising, only 1 consumer replica for ingest-worker", "correct_tool": "scale_replica"},
+  {"incident": "Database failover mid-incident and paging policy requires human ack", "correct_tool": "page_oncall"},
+  {"incident": "Summarize recent PushEvents for redis/redis from logs", "correct_tool": "none"},
+  {"incident": "Container repeatedly exits with code 137 in ns=staging pod=cache-0", "correct_tool": "restart_pod"},
+  {"incident": "Credential stuffing from 192.0.2.88 against login API", "correct_tool": "block_ip"},
+  {"incident": "Canary of billing-service looks bad, revert to previous version", "correct_tool": "rollback_deploy"},
+
+  {"incident": "One api pod in CrashLoopBackOff after a bad release; traffic is otherwise fine and rollback of the whole fleet may be overkill — stabilize the bad pod first", "correct_tool": "restart_pod", "also_plausible": ["rollback_deploy"]},
+  {"incident": "Suspicious IP 203.0.113.9 is hammering login AND error rates jumped right after deploy payments-v3; security says block the IP first before touching the release", "correct_tool": "block_ip", "also_plausible": ["rollback_deploy"]},
+  {"incident": "After deploy checkout-v9 latency exploded under load; rolling back is preferred over blindly adding replicas that would amplify a bad binary", "correct_tool": "rollback_deploy", "also_plausible": ["scale_replica"]},
+  {"incident": "Known-good build, sudden 10x QPS, pods healthy but saturated — scale out rather than paging or rolling back", "correct_tool": "scale_replica", "also_plausible": ["page_oncall"]},
+  {"incident": "Symptoms span DNS, DB, and edge; no single pod or IP to act on; policy requires a human before infra changes", "correct_tool": "page_oncall", "also_plausible": ["restart_pod", "block_ip"]},
+  {"incident": "CI is red on a public repo in the logs but production SLOs are green and no customer impact — investigate only", "correct_tool": "none", "also_plausible": ["page_oncall"]},
+  {"incident": "Bad canary is live and also one replica is crashlooping; primary customer impact is the canary binary, so revert the deploy rather than only restarting the pod", "correct_tool": "rollback_deploy", "also_plausible": ["restart_pod"]},
+  {"incident": "Auth abuse from a single /24 plus mild CPU rise; stop the abuse at the edge before scaling more app capacity", "correct_tool": "block_ip", "also_plausible": ["scale_replica"]}
+]
