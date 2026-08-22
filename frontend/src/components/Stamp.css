@@ -1,0 +1,53 @@
+.stamp {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  font-family: "Special Elite", cursive;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 3px solid;
+  padding: 0.25rem 0.55rem;
+  transform: rotate(-12deg);
+  animation: popIn 0.4s cubic-bezier(0.22, 1.5, 0.36, 1) both;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.88;
+}
+
+.stamp-closed {
+  color: var(--red-string);
+  border-color: var(--red-string);
+}
+
+.stamp-escalating {
+  color: #1a5276;
+  border-color: #1a5276;
+  border-style: dashed;
+  clip-path: polygon(
+    0% 8%,
+    4% 0%,
+    12% 6%,
+    20% 0%,
+    30% 7%,
+    40% 1%,
+    52% 8%,
+    62% 0%,
+    72% 6%,
+    82% 1%,
+    92% 7%,
+    100% 2%,
+    100% 92%,
+    96% 100%,
+    88% 94%,
+    78% 100%,
+    68% 93%,
+    56% 100%,
+    46% 94%,
+    36% 100%,
+    24% 93%,
+    14% 100%,
+    6% 94%,
+    0% 100%
+  );
+}
