@@ -1,0 +1,244 @@
+[
+  {
+    "query": "Why are workflows failing on microsoft/vscode?",
+    "docs": [
+      "event=WorkflowRunEvent | repo=microsoft/vscode | actor=github-actions[bot] | at=2024-01-01T00:00:00Z | conclusion=failure | name=CI",
+      "event=WorkflowRunEvent | repo=microsoft/vscode | actor=github-actions[bot] | at=2024-01-01T00:05:00Z | conclusion=failure | name=CI"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "Push activity on kubernetes/kubernetes",
+    "docs": [
+      "event=PushEvent | repo=kubernetes/kubernetes | actor=k8s-ci-robot | at=2024-02-01T12:00:00Z | commits=3 | messages=fix flaky test"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "Issues opened against facebook/react",
+    "docs": [
+      "event=IssuesEvent | repo=facebook/react | actor=dev1 | action=opened | title=Concurrent mode bug"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "CI failures for tensorflow/tensorflow",
+    "docs": [
+      "event=WatchEvent | repo=some/unrelated | actor=bob | action=started",
+      "event=ForkEvent | repo=other/repo | actor=alice"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Release published by nodejs/node",
+    "docs": [
+      "event=ReleaseEvent | repo=nodejs/node | actor=nodejs-github-bot | tag=v22.0.0 | action=published"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "Workflow failures on grafana/grafana",
+    "docs": [
+      "event=PushEvent | repo=redis/redis | actor=antirez | commits=1 | messages=docs typo"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "PR merges in rust-lang/rust",
+    "docs": [
+      "event=PullRequestEvent | repo=rust-lang/rust | actor=bors | action=closed | merged=True | title=Stabilize feature"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "Who starred golang/go?",
+    "docs": [
+      "event=IssuesEvent | repo=angular/angular | actor=x | action=opened | title=zone.js issue"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Fork of torvalds/linux",
+    "docs": [
+      "event=ForkEvent | repo=torvalds/linux | actor=contrib | fork=contrib/linux"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "Delete branch events in elastic/elasticsearch",
+    "docs": [
+      "event=CreateEvent | repo=apache/spark | actor=bot | ref_type=branch | ref=feature-x"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Memory leak issue on denoland/deno",
+    "docs": [
+      "event=IssuesEvent | repo=denoland/deno | actor=user | action=opened | title=memory leak in fetch"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "Burst of failures on hashicorp/terraform",
+    "docs": [
+      "event=WorkflowRunEvent | repo=hashicorp/terraform | conclusion=failure | name=build",
+      "event=WorkflowRunEvent | repo=hashicorp/terraform | conclusion=failure | name=test"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "Pushes to homebrew/brew",
+    "docs": [
+      "event=WatchEvent | repo=vercel/next.js | actor=fan | action=started"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "django/django pull request activity",
+    "docs": [
+      "event=PullRequestEvent | repo=django/django | actor=felix | action=opened | title=Fix admin filter"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "actions/runner workflow status",
+    "docs": [
+      "event=WorkflowRunEvent | repo=actions/runner | conclusion=success | name=CI"
+    ],
+    "correct_relevant": true
+  },
+  {
+    "query": "What broke in pytorch/pytorch CI?",
+    "docs": [
+      "event=PushEvent | repo=microsoft/vscode | actor=dev | commits=1 | messages=bump version"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Was the memory leak issue on denoland/deno about fetch?",
+    "docs": [
+      "event=IssuesEvent | repo=denoland/deno | actor=user | action=opened | title=typo in README | state=open"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Did elastic/elasticsearch delete the release-2 branch?",
+    "docs": [
+      "event=DeleteEvent | repo=elastic/elasticsearch | actor=bot | ref_type=branch | ref=old-feature-branch | at=2023-01-01T00:00:00Z"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Any WorkflowRunEvent failure named build on hashicorp/terraform today?",
+    "docs": [
+      "event=WorkflowRunEvent | repo=hashicorp/terraform | conclusion=success | name=build | at=2022-01-01T00:00:00Z"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Is there a merged Stabilize PR on rust-lang/rust?",
+    "docs": [
+      "event=PullRequestEvent | repo=rust-lang/rust | actor=bors | action=opened | merged=False | title=Stabilize feature"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Who forked torvalds/linux as contrib/linux?",
+    "docs": [
+      "event=ForkEvent | repo=torvalds/linux | actor=otherdev | fork=otherdev/linux-fork"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Push to kubernetes/kubernetes fixing flaky tests?",
+    "docs": [
+      "event=PushEvent | repo=kubernetes/kubernetes | actor=k8s-ci-robot | at=2024-02-01T12:00:00Z | commits=1 | messages=docs: fix typo in README"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "nodejs/node release for tag v22.0.0 published?",
+    "docs": [
+      "event=ReleaseEvent | repo=nodejs/node | actor=nodejs-github-bot | tag=v20.1.0 | action=published"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "CI failure conclusion on microsoft/vscode around 2024-01-01?",
+    "docs": [
+      "event=WorkflowRunEvent | repo=microsoft/vscode | actor=github-actions[bot] | at=2021-06-01T00:00:00Z | conclusion=success | name=CI"
+    ],
+    "correct_relevant": false
+  },
+
+  {
+    "query": "Any open issue about concurrent mode / state races on facebook/react?",
+    "docs": [
+      "event=IssuesEvent | repo=angular/angular | actor=dev | action=opened | title=Concurrent renderer state glitch | state=open"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Memory leak in Deno fetch specifically?",
+    "docs": [
+      "event=IssuesEvent | repo=nodejs/node | actor=dev | action=opened | title=memory leak in http client | state=open"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Did terraform's build workflow fail?",
+    "docs": [
+      "event=WorkflowRunEvent | repo=grafana/grafana | conclusion=failure | name=test | at=2024-06-01T10:00:00Z"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "AMP fix PR activity on pytorch/pytorch?",
+    "docs": [
+      "event=PullRequestEvent | repo=rust-lang/rust | actor=bors | action=opened | merged=False | title=amp fix draft"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "State management bug opened against Angular signals?",
+    "docs": [
+      "event=IssuesEvent | repo=facebook/react | actor=dev | action=opened | title=state management race in useEffect"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Node http-client memory leak issue open?",
+    "docs": [
+      "event=IssuesEvent | repo=denoland/deno | actor=user | action=opened | title=memory leak in fetch"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Grafana test workflow failure in the logs?",
+    "docs": [
+      "event=WorkflowRunEvent | repo=hashicorp/terraform | conclusion=failure | name=build | at=2024-06-01T10:00:00Z"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "Stabilize feature merged on rust-lang/rust?",
+    "docs": [
+      "event=PullRequestEvent | repo=pytorch/pytorch | actor=bot | action=closed | merged=True | title=Stabilize amp"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "App-router fetch memory leak on next.js?",
+    "docs": [
+      "event=IssuesEvent | repo=denoland/deno | actor=user | action=opened | title=memory leak in fetch"
+    ],
+    "correct_relevant": false
+  },
+  {
+    "query": "zone.js issue storm on angular/angular?",
+    "docs": [
+      "event=IssuesEvent | repo=facebook/react | actor=dev1 | action=opened | title=Concurrent mode bug"
+    ],
+    "correct_relevant": false
+  }
+]
