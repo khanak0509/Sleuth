@@ -1,0 +1,67 @@
+[
+  {
+    "query": "What happened to microsoft/vscode CI?",
+    "docs": [
+      "event=WorkflowRunEvent | repo=microsoft/vscode | conclusion=failure | name=CI | at=2024-06-01T10:00:00Z"
+    ],
+    "answer": "microsoft/vscode has a WorkflowRunEvent with conclusion=failure for the CI workflow around 2024-06-01T10:00:00Z.",
+    "expect_faithful": true
+  },
+  {
+    "query": "Any pushes to redis/redis?",
+    "docs": [
+      "event=PushEvent | repo=redis/redis | actor=antirez | commits=2 | messages=fix RDB"
+    ],
+    "answer": "Yes — redis/redis shows a PushEvent from antirez with 2 commits including a message about fixing RDB.",
+    "expect_faithful": true
+  },
+  {
+    "query": "Issues on facebook/react?",
+    "docs": [
+      "event=IssuesEvent | repo=facebook/react | action=opened | title=Concurrent mode bug"
+    ],
+    "answer": "facebook/react has an opened IssuesEvent titled Concurrent mode bug. Also the AWS us-east-1 region is down which caused it.",
+    "expect_faithful": false
+  },
+  {
+    "query": "PR merges in rust-lang/rust",
+    "docs": [
+      "event=PullRequestEvent | repo=rust-lang/rust | action=closed | merged=True | title=Stabilize feature"
+    ],
+    "answer": "rust-lang/rust has a closed PR titled Stabilize feature with merged=True.",
+    "expect_faithful": true
+  },
+  {
+    "query": "Stars on golang/go",
+    "docs": [
+      "event=WatchEvent | repo=golang/go | actor=fan42 | action=started"
+    ],
+    "answer": "golang/go received a WatchEvent (star) from fan42. Separately, Docker Hub was breached today.",
+    "expect_faithful": false
+  },
+  {
+    "query": "Terraform CI failures",
+    "docs": [
+      "event=WorkflowRunEvent | repo=hashicorp/terraform | conclusion=failure | name=build",
+      "event=WorkflowRunEvent | repo=hashicorp/terraform | conclusion=failure | name=test"
+    ],
+    "answer": "hashicorp/terraform shows multiple WorkflowRunEvent failures for build and test.",
+    "expect_faithful": true
+  },
+  {
+    "query": "deno memory leak issue?",
+    "docs": [
+      "event=IssuesEvent | repo=denoland/deno | action=opened | title=memory leak in fetch"
+    ],
+    "answer": "denoland/deno has an opened issue titled memory leak in fetch.",
+    "expect_faithful": true
+  },
+  {
+    "query": "Forks of linux?",
+    "docs": [
+      "event=ForkEvent | repo=torvalds/linux | actor=contrib | fork=contrib/linux"
+    ],
+    "answer": "torvalds/linux was forked by contrib as contrib/linux. Linus personally approved the fork in a private email.",
+    "expect_faithful": false
+  }
+]
