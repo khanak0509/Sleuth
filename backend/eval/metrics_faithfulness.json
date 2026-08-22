@@ -1,0 +1,22 @@
+{
+  "mean_faithful_score": 5.0,
+  "mean_all_including_planted": 3.75,
+  "low_score_flags": [
+    {
+      "query": "Issues on facebook/react?",
+      "score": 1,
+      "claims": [
+        "AWS us-east-1 region is down which caused it."
+      ]
+    },
+    {
+      "query": "Forks of linux?",
+      "score": 1,
+      "claims": [
+        "Linus personally approved the fork in a private email."
+      ]
+    }
+  ],
+  "grounded_cases": 5,
+  "cases": 8
+}
