@@ -1,0 +1,225 @@
+.corkboard {
+  position: relative;
+  min-height: 100vh;
+  padding: 1.5rem 1.25rem 3rem;
+  overflow: hidden;
+}
+
+.brand {
+  text-align: center;
+  margin-bottom: 0.5rem;
+  position: relative;
+  z-index: 3;
+}
+
+.brand h1 {
+  margin: 0;
+  font-family: "Special Elite", cursive;
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  letter-spacing: 0.12em;
+  color: var(--text-light);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
+}
+
+.tagline {
+  margin: 0.2rem 0 0;
+  font-family: "Kalam", cursive;
+  color: var(--card-cream-dark);
+  font-size: 1rem;
+}
+
+.status-note {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.2rem;
+  z-index: 8;
+}
+
+.status-note .ts {
+  display: block;
+  font-size: 0.72rem;
+  margin-top: 0.25rem;
+  opacity: 0.75;
+  word-break: break-all;
+}
+
+.string-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.string-path {
+  stroke-dasharray: 240;
+  animation: stringDraw 0.7s ease forwards;
+  opacity: 0;
+}
+
+.query-card {
+  position: relative;
+  z-index: 4;
+  width: min(420px, 92vw);
+  margin: 7rem auto 2rem;
+  background: var(--card-cream);
+  border: 2px solid var(--card-border);
+  padding: 1.6rem 1.1rem 1.1rem;
+  transform: rotate(-1.5deg);
+  box-shadow: 3px 4px 0 rgba(44, 24, 16, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.query-pin {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8, transparent 40%), var(--pin-red);
+  box-shadow: 1px 2px 2px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.case-label {
+  font-family: "Special Elite", cursive;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.95rem;
+  color: var(--cork-mid);
+  text-align: center;
+}
+
+.query-card textarea {
+  font-family: "Kalam", cursive;
+  font-size: 1rem;
+  resize: vertical;
+  min-height: 72px;
+  border: 1px solid var(--card-cream-dark);
+  background: #faf4e8;
+  color: var(--text-dark);
+  padding: 0.55rem 0.65rem;
+  outline: none;
+}
+
+.query-card textarea:focus {
+  border-color: var(--cork-light);
+}
+
+.query-card button {
+  align-self: center;
+  background: linear-gradient(180deg, #5c3d2e, #3a2a1a);
+  color: var(--text-light);
+  border: 2px solid #c9a227;
+  padding: 0.55rem 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+.query-card button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.35);
+}
+
+.query-card button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.query-card .tool-note {
+  position: absolute;
+  right: -70px;
+  top: -20px;
+}
+
+.verdict {
+  position: relative;
+  z-index: 4;
+  width: min(560px, 92vw);
+  margin: 1.5rem auto 0;
+  background: var(--card-cream);
+  border: 2px solid var(--card-border);
+  padding: 1.25rem 1.2rem 1.1rem;
+  box-shadow: 3px 4px 0 rgba(44, 24, 16, 0.3);
+  transform: rotate(0.6deg);
+  animation: dropIn 0.5s cubic-bezier(0.22, 1.3, 0.36, 1) both;
+}
+
+.verdict.rejected {
+  border-color: var(--red-string);
+}
+
+.verdict h2 {
+  margin: 0 0 0.5rem;
+  font-family: "Special Elite", cursive;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 1.15rem;
+  color: var(--cork-mid);
+}
+
+.verdict .path {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  color: var(--cork-light);
+  font-family: "Special Elite", cursive;
+}
+
+.verdict .answer {
+  margin: 0;
+  font-family: "Kalam", cursive;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.verdict .grade {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.err {
+  text-align: center;
+  color: #ffd7d0;
+  font-family: "Kalam", cursive;
+  position: relative;
+  z-index: 4;
+}
+
+@media (max-width: 720px) {
+  .status-note {
+    position: static;
+    margin: 0.5rem auto 0;
+  }
+
+  .query-card {
+    margin-top: 2.5rem;
+  }
+
+  .query-card .tool-note {
+    right: 8px;
+    top: -36px;
+  }
+
+  .evidence-card {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    margin: 0.75rem auto;
+    display: block;
+  }
+
+  .string-layer {
+    display: none;
+  }
+}
