@@ -1,0 +1,8 @@
+{
+  "input_catch_rate": 1.0,
+  "output_catch_rate": 1.0,
+  "output_false_flag_rate": 0.0,
+  "input_block_cases": 9,
+  "output_flag_cases": 6,
+  "output_safe_cases": 4
+}
