@@ -1,8 +1,6 @@
 # Sleuth
 
-Live incident-response RAG demo. It polls GitHub’s public Events API, embeds each event into Qdrant, and answers investigation queries through a LangGraph pipeline (retrieve → grade → answer or web fallback → mock tool pick) with input/output guardrails.
-
-Built as a portfolio piece: fewer features, more eval rigor.
+Live incident-response RAG. It polls GitHub’s public Events API, embeds each event into Qdrant, and answers investigation queries through a LangGraph pipeline (retrieve → grade → answer or web fallback → mock tool pick) with input/output guardrails.
 
 ## Where does the data come from?
 
@@ -152,6 +150,4 @@ cd backend && source .venv/bin/activate
 RUN_INTEGRATION=1 .venv/bin/python -m pytest tests/integration/ -v
 python eval/run_all.py
 ```
-
-## Thanks :) 
 
