@@ -2,30 +2,17 @@
 
 Live incident-response RAG. It polls GitHub’s public Events API, embeds each event into Qdrant, and answers investigation queries through a LangGraph pipeline (retrieve → grade → answer or web fallback → mock tool pick) with input/output guardrails.
 
-## Where does the data come from?
+## Data sources
 
 
-| Source                                             | What it is                                                                                                   | Auth                                                      |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| [GitHub Events API](https://api.github.com/events) | Real public timeline (pushes, issues, PRs, workflow runs, …) polled every few seconds by `backend/ingest.py` | None required; optional `GITHUB_TOKEN` raises rate limits |
-| OpenAI                                             | Embeddings (`text-embedding-3-small`) + `gpt-4o-mini` for grading, answers, tools, guardrails                | `OPENAI_API_KEY` in `.env`                                |
-| DuckDuckGo (`ddgs`)                                | Used only when the grader says local logs are weak (fallback path)                                           | No key                                                    |
+| Source                                             | What it is                                                                                              | Auth                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [GitHub Events API](https://api.github.com/events) | Public timeline (pushes, issues, PRs, workflow runs, …) polled every few seconds by `backend/ingest.py` | None required; optional `GITHUB_TOKEN` raises rate limits |
+| OpenAI                                             | Embeddings (`text-embedding-3-small`) + `gpt-4o-mini` for grading, answers, tools, guardrails           | `OPENAI_API_KEY` in `.env`                                |
+| DuckDuckGo (`ddgs`)                                | Web search when the grader marks local logs as weak (fallback path)                                     | No key                                                    |
 
 
-There is no canned log file. The corkboard sticky note’s event count rises because new public GitHub events are actually landing while the API runs.
-
-## What is [http://127.0.0.1:5173](http://127.0.0.1:5173)?
-
-That is the **Vite React frontend** (local only).
-
-
-| URL                                            | Process                           |
-| ---------------------------------------------- | --------------------------------- |
-| [http://127.0.0.1:5173](http://127.0.0.1:5173) | UI (`npm run dev` in `frontend/`) |
-| [http://127.0.0.1:8000](http://127.0.0.1:8000) | FastAPI (`uvicorn` in `backend/`) |
-
-
-The UI proxies `/incident` and `/stream` to port 8000 (see `frontend/vite.config.js`). Open 5173 in a browser; you do not open 8000 for the corkboard.
+Ingest pulls real public GitHub events while the API runs; the corkboard event counter reflects what has been indexed.
 
 ## Quick start
 
@@ -43,7 +30,14 @@ npm install
 npm run dev
 ```
 
-Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
+
+| URL                                            | Service                                    |
+| ---------------------------------------------- | ------------------------------------------ |
+| [http://127.0.0.1:5173](http://127.0.0.1:5173) | Frontend — Vite React corkboard UI         |
+| [http://127.0.0.1:8000](http://127.0.0.1:8000) | Backend — FastAPI (`/incident`, `/stream`) |
+
+
+Open **5173** in a browser. The frontend proxies `/incident` and `/stream` to port 8000 (`frontend/vite.config.js`).
 
 ## Architecture
 
@@ -75,9 +69,9 @@ LLM calls use `chain = prompt | llm | parser` (or `.with_structured_output`), mo
 
 ### Known limitation: Qdrant `:memory:`
 
-The vector store is **in-process** `:memory:`. Restarting the API **wipes the index**; ingest starts from zero again. That is a deliberate demo-scope choice (no Docker, no disk lock fights), not an accidental omission.
+The vector store is **in-process** `:memory:`. Restarting the API **wipes the index**; ingest starts from zero again. No Docker or on-disk Qdrant in this setup.
 
-A production version would use a durable Qdrant (local path / Docker / hosted) with a persistent collection and the same upsert/search API.
+A production deployment would use a durable Qdrant (local path / Docker / hosted) with a persistent collection and the same upsert/search API.
 
 ## API
 
@@ -100,7 +94,7 @@ A production version would use a durable Qdrant (local path / Docker / hosted) w
 
 `GET /stream/status` → `{ event_count, last_ingested_timestamp, running }`
 
-## Evaluation (how the numbers got here)
+## Evaluation
 
 Stages are scored separately — retrieval, grading, fallback, tools, guardrails, faithfulness — because RAG fails differently at each hop.
 
@@ -109,15 +103,11 @@ cd backend && source .venv/bin/activate
 python eval/run_all.py    # writes eval/results.md + metrics_*.json
 ```
 
-
-
-### Eval methodology (kept on purpose)
+### Eval methodology
 
 1. **First pass was too easy.** Early retrieval/grading queries nearly paraphrased their gold docs with no real distractors, so scores looked like a clean 100%. Sets were hardened with lookalike incidents (same failure mode across different repos: memory leaks, state-management bugs, CI failures) without “not X / rather than X” negation cues that hand the model the answer.
 2. **Output guardrail silently over-flagged.** Catch rate alone looked fine while safe answers (“suggest rolling back…”, factual CI summaries) were rejected. An **output false-flag rate** was added and gated (`<= 0.15`), and the prompt was tightened to allow recommendations / log facts while still catching past-tense “I already restarted…” claims.
 3. **Numbers are reported as measured.** If lookalike cases drop Recall or raise grading FPR, that drop stays in the table — cases are not retuned until they pass.
-
-
 
 ### Latest gate (`eval/results.md`)
 
@@ -151,5 +141,5 @@ RUN_INTEGRATION=1 .venv/bin/python -m pytest tests/integration/ -v
 python eval/run_all.py
 ```
 
+## Thanks :)
 
-## Thanks :) 
