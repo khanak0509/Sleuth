@@ -8,6 +8,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 load_dotenv()
@@ -28,10 +30,15 @@ def load_seed():
 
 def make_store():
     emb = OpenAIEmbeddings(model="text-embedding-3-small")
-    return QdrantVectorStore(
-        embedding=emb,
+    client = QdrantClient(location=":memory:")
+    client.create_collection(
         collection_name=COLL,
-        location=":memory:",
+        vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+    )
+    return QdrantVectorStore(
+        client=client,
+        collection_name=COLL,
+        embedding=emb,
     )
 
 
