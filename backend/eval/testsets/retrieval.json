@@ -32,5 +32,11 @@
   {"query": "IaC provider CI build job concluded failure", "expected_repo": "hashicorp/terraform", "expected_type": "WorkflowRunEvent"},
   {"query": "dashboard observability test workflow concluded failure", "expected_repo": "grafana/grafana", "expected_type": "WorkflowRunEvent"},
   {"query": "AMP training fix pull request opened on PyTorch", "expected_repo": "pytorch/pytorch", "expected_type": "PullRequestEvent"},
-  {"query": "language feature stabilize PR closed and merged on Rust", "expected_repo": "rust-lang/rust", "expected_type": "PullRequestEvent"}
+  {"query": "language feature stabilize PR closed and merged on Rust", "expected_repo": "rust-lang/rust", "expected_type": "PullRequestEvent"},
+
+  {"query": "vs code ci brokne again", "expected_repo": "microsoft/vscode", "expected_type": "WorkflowRunEvent", "vague": true},
+  {"query": "something weird with reakt issues lately", "expected_repo": "facebook/react", "expected_type": "IssuesEvent", "vague": true},
+  {"query": "memry leak fetch on that deno runtime", "expected_repo": "denoland/deno", "expected_type": "IssuesEvent", "vague": true},
+  {"query": "hashi form build keep failing", "expected_repo": "hashicorp/terraform", "expected_type": "WorkflowRunEvent", "vague": true},
+  {"query": "grafna tests went red again", "expected_repo": "grafana/grafana", "expected_type": "WorkflowRunEvent", "vague": true}
 ]
