@@ -1,8 +1,13 @@
 {
   "recall_at_3": 1.0,
   "recall_at_5": 1.0,
-  "precision_at_5": 0.3625,
+  "precision_at_5": 0.875,
+  "precision_at_5_dense": 0.3625,
+  "precision_at_5_hybrid": 0.875,
   "stale_recall": 0.0,
   "fresh_recall_at_3": 1.0,
-  "cases": 32
+  "rewrite_recall_at_3_raw": 0.8,
+  "rewrite_recall_at_3_rewritten": 1.0,
+  "cases": 32,
+  "vague_cases": 5
 }
