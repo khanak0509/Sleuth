@@ -101,47 +101,29 @@ Retrieval is dense cosine + BM25 fused with RRF, optional payload filters when a
 
 ## Evaluation
 
-Stages are scored separately — retrieval, grading, fallback, tools, guardrails, faithfulness — because RAG fails differently at each hop.
+Stages are scored separately: retrieval, grading, fallback, tools, guardrails, faithfulness.
 
 ```bash
 cd backend && source .venv/bin/activate
-python eval/run_all.py    # writes eval/results.md + metrics_*.json
+python eval/run_all.py
 ```
 
+| metric                           | result            | threshold    | status   |
+| -------------------------------- | ----------------- | ------------ | -------- |
+| Retrieval Recall@3               | **1.000**         | >= 0.80      | PASS     |
+| Retrieval stale recall           | **0.000**         | ~0 (<= 0.15) | PASS     |
+| Retrieval Precision@5 dense-only | **0.362**         | —            | baseline |
+| Retrieval Precision@5 hybrid     | **0.875**         | —            | Δ+0.512  |
+| Rewrite Recall@3 raw → rewritten | **0.800 → 1.000** | —            | Δ+0.200  |
+| Grading false-positive rate      | **0.125**         | <= 0.10      | FAIL     |
+| Fallback trigger accuracy        | **1.000**         | >= 0.85      | PASS     |
+| Tool selection accuracy          | **1.000**         | >= 0.80      | PASS     |
+| Input guardrail catch rate       | **1.000**         | >= 0.90      | PASS     |
+| Output guardrail catch rate      | **1.000**         | >= 0.85      | PASS     |
+| Output guardrail false-flag rate | **0.000**         | <= 0.15      | PASS     |
+| Faithfulness mean (grounded)     | **5.00**          | >= 4.0       | PASS     |
 
-
-### Eval methodology
-
-1. **First pass was too easy.** Early retrieval/grading queries nearly paraphrased their gold docs with no real distractors, so scores looked like a clean 100%. Sets were hardened with lookalike incidents (same failure mode across different repos: memory leaks, state-management bugs, CI failures) without “not X / rather than X” negation cues that hand the model the answer.
-2. **Output guardrail silently over-flagged.** Catch rate alone looked fine while safe answers (“suggest rolling back…”, factual CI summaries) were rejected. An **output false-flag rate** was added and gated (`<= 0.15`), and the prompt was tightened to allow recommendations / log facts while still catching past-tense “I already restarted…” claims.
-3. **Numbers are reported as measured.** If lookalike cases drop Recall or raise grading FPR, that drop stays in the table — cases are not retuned until they pass.
-4. **Hybrid + rerank targeted Precision@5.** Dense-only cosine sat at **0.362** mean P@5. BM25 + dense RRF, single-repo metadata filters, and MiniLM cross-encoder rerank lifted P@5 to **0.875** (Δ **+0.512**) while Recall@3 stayed at **1.000**. See `eval/results_retrieval.md`.
-5. **Query rewrite for messy input.** Five typo/alias vague queries: Recall@3 raw **0.800** → rewritten **1.000** (Δ **+0.200**). Rewrite runs before retrieve; grading/answer still use the original user query.
-
-
-
-### Latest gate (`eval/results.md`)
-
-
-| metric                           | result            | threshold    | status           |
-| -------------------------------- | ----------------- | ------------ | ---------------- |
-| Retrieval Recall@3               | **1.000**         | >= 0.80      | PASS             |
-| Retrieval stale recall           | **0.000**         | ~0 (<= 0.15) | PASS             |
-| Retrieval Precision@5 dense-only | **0.362**         | —            | (before)         |
-| Retrieval Precision@5 hybrid     | **0.875**         | —            | (after, Δ+0.512) |
-| Rewrite Recall@3 raw → rewritten | **0.800 → 1.000** | —            | (Δ+0.200)        |
-| Grading false-positive rate      | **0.125**         | <= 0.10      | **FAIL**         |
-| Fallback trigger accuracy        | **1.000**         | >= 0.85      | PASS             |
-| Tool selection accuracy          | **1.000**         | >= 0.80      | PASS             |
-| Input guardrail catch rate       | **1.000**         | >= 0.90      | PASS             |
-| Output guardrail catch rate      | **1.000**         | >= 0.85      | PASS             |
-| Output guardrail false-flag rate | **0.000**         | <= 0.15      | PASS             |
-| Faithfulness mean (grounded)     | **5.00**          | >= 4.0       | PASS             |
-
-
-**Overall: FAIL (1 metric)** — grading FPR **0.125** on lookalike negatives (3 FP / 24 safe-negative cases). The grader wrongly called docs “relevant” for cross-repo memory-leak lookalikes (Deno↔Node↔Next.js). Threshold stays at `<= 0.10`; cases were **not** softened to force a green gate.
-
-Grading accuracy on the full set: **0.912** (34 cases). Retrieval lookalikes without negation cues still hit Recall@3 = 1.0; hybrid Precision@5 is **0.875** vs dense-only **0.362**.
+Hybrid retrieval (BM25 + dense + RRF + rerank) raised Precision@5 from **0.362** to **0.875**. Query rewrite raised vague-query Recall@3 from **0.800** to **1.000**. Grading FPR is **0.125** (threshold `<= 0.10`) on cross-repo lookalike negatives — left as measured. Full per-query tables: `backend/eval/results_retrieval.md`.
 
 ## Testing
 
