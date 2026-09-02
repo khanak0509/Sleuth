@@ -1,6 +1,6 @@
 # Sleuth
 
-Live incident-response RAG. It polls GitHub’s public Events API, embeds each event into Qdrant, and answers investigation queries through a LangGraph pipeline (retrieve → grade → answer or web fallback → mock tool pick) with input/output guardrails.
+Live incident-response RAG. It polls GitHub’s public Events API, indexes each event in Qdrant + BM25, and answers investigation queries through a LangGraph pipeline (rewrite → hybrid retrieve → grade → answer or web fallback → mock tool pick) with input/output guardrails.
 
 ## Data sources
 
@@ -41,37 +41,42 @@ Open **5173** in a browser. The frontend proxies `/incident` and `/stream` to po
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    GH[GitHub Events] --> IN[ingest.py]
+    IN --> VEC[(Qdrant<br/>dense vectors)]
+    IN --> BM25[(BM25<br/>keyword index)]
+
+    UI[Frontend :5173] --> API[FastAPI :8000]
+    API --> RW[rewrite query]
+    RW --> MF[metadata filter]
+    MF --> VS[vector search]
+    MF --> BS[BM25 search]
+    VEC --> VS
+    BM25 --> BS
+    VS --> RRF[RRF fuse]
+    BS --> RRF
+    RRF --> CE[cross-encoder<br/>rerank top 5]
+    CE --> GR[grade]
+    GR -->|ok| AN[answer]
+    GR -->|weak| FB[fallback + web]
+    AN --> OUT[response]
+    FB --> OUT
 ```
-GitHub Events API ──poll──▶ ingest.py ──embed──▶ Qdrant (:memory:)
-                                                    │
-POST /incident ──▶ input guardrail ──▶ LangGraph:
-                     │                    retrieve → grade
-                     │                         │
-                     │              relevant? ─┼─ yes → answer
-                     │                         └─ no  → fallback (ddgs)
-                     │                                    │
-                     │                              pick_tool (mock)
-                     └──────────────────────────▶ output guardrail → JSON
-```
+
+| File                    | Role                                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| `backend/ingest.py`     | Poll, flatten, embed, BM25; hybrid search + metadata filter + cross-encoder rerank |
+| `backend/agent.py`      | LangGraph: rewrite → retrieve → grade → answer/fallback → tool                     |
+| `backend/tools.py`      | Mock ops tools + structured selection (log only, no real infra)                    |
+| `backend/guardrails.py` | Input / output checks                                                              |
+| `backend/main.py`       | `POST /incident`, `GET /stream/status`                                             |
+| `frontend/`             | Corkboard UI                                                                       |
 
 
-| File                    | Role                                                            |
-| ----------------------- | --------------------------------------------------------------- |
-| `backend/ingest.py`     | Poll, flatten, embed, upsert; exposes search + live `stats`     |
-| `backend/agent.py`      | LangGraph state machine                                         |
-| `backend/tools.py`      | Mock ops tools + structured selection (log only, no real infra) |
-| `backend/guardrails.py` | Input / output checks                                           |
-| `backend/main.py`       | `POST /incident`, `GET /stream/status`                          |
-| `frontend/`             | Corkboard UI                                                    |
 
 
-LLM calls use `chain = prompt | llm | parser` (or `.with_structured_output`), model `gpt-4o-mini` only.
-
-### Known limitation: Qdrant `:memory:`
-
-The vector store is **in-process** `:memory:`. Restarting the API **wipes the index**; ingest starts from zero again. No Docker or on-disk Qdrant in this setup.
-
-A production deployment would use a durable Qdrant (local path / Docker / hosted) with a persistent collection and the same upsert/search API.
+Retrieval is dense cosine + BM25 fused with RRF, optional payload filters when a single repo/event type is clear, then `cross-encoder/ms-marco-MiniLM-L-6-v2` reranks the top ~15 down to 5.
 
 ## API
 
@@ -103,32 +108,40 @@ cd backend && source .venv/bin/activate
 python eval/run_all.py    # writes eval/results.md + metrics_*.json
 ```
 
+
+
 ### Eval methodology
 
 1. **First pass was too easy.** Early retrieval/grading queries nearly paraphrased their gold docs with no real distractors, so scores looked like a clean 100%. Sets were hardened with lookalike incidents (same failure mode across different repos: memory leaks, state-management bugs, CI failures) without “not X / rather than X” negation cues that hand the model the answer.
 2. **Output guardrail silently over-flagged.** Catch rate alone looked fine while safe answers (“suggest rolling back…”, factual CI summaries) were rejected. An **output false-flag rate** was added and gated (`<= 0.15`), and the prompt was tightened to allow recommendations / log facts while still catching past-tense “I already restarted…” claims.
 3. **Numbers are reported as measured.** If lookalike cases drop Recall or raise grading FPR, that drop stays in the table — cases are not retuned until they pass.
+4. **Hybrid + rerank targeted Precision@5.** Dense-only cosine sat at **0.362** mean P@5. BM25 + dense RRF, single-repo metadata filters, and MiniLM cross-encoder rerank lifted P@5 to **0.875** (Δ **+0.512**) while Recall@3 stayed at **1.000**. See `eval/results_retrieval.md`.
+5. **Query rewrite for messy input.** Five typo/alias vague queries: Recall@3 raw **0.800** → rewritten **1.000** (Δ **+0.200**). Rewrite runs before retrieve; grading/answer still use the original user query.
+
+
 
 ### Latest gate (`eval/results.md`)
 
 
-| metric                           | result    | threshold    | status          |
-| -------------------------------- | --------- | ------------ | --------------- |
-| Retrieval Recall@3               | **1.000** | >= 0.80      | PASS            |
-| Retrieval stale recall           | **0.000** | ~0 (<= 0.15) | PASS            |
-| Retrieval Precision@5 (mean)     | **0.362** | —            | (informational) |
-| Grading false-positive rate      | **0.125** | <= 0.10      | **FAIL**        |
-| Fallback trigger accuracy        | **1.000** | >= 0.85      | PASS            |
-| Tool selection accuracy          | **1.000** | >= 0.80      | PASS            |
-| Input guardrail catch rate       | **1.000** | >= 0.90      | PASS            |
-| Output guardrail catch rate      | **1.000** | >= 0.85      | PASS            |
-| Output guardrail false-flag rate | **0.000** | <= 0.15      | PASS            |
-| Faithfulness mean (grounded)     | **5.00**  | >= 4.0       | PASS            |
+| metric                           | result            | threshold    | status           |
+| -------------------------------- | ----------------- | ------------ | ---------------- |
+| Retrieval Recall@3               | **1.000**         | >= 0.80      | PASS             |
+| Retrieval stale recall           | **0.000**         | ~0 (<= 0.15) | PASS             |
+| Retrieval Precision@5 dense-only | **0.362**         | —            | (before)         |
+| Retrieval Precision@5 hybrid     | **0.875**         | —            | (after, Δ+0.512) |
+| Rewrite Recall@3 raw → rewritten | **0.800 → 1.000** | —            | (Δ+0.200)        |
+| Grading false-positive rate      | **0.125**         | <= 0.10      | **FAIL**         |
+| Fallback trigger accuracy        | **1.000**         | >= 0.85      | PASS             |
+| Tool selection accuracy          | **1.000**         | >= 0.80      | PASS             |
+| Input guardrail catch rate       | **1.000**         | >= 0.90      | PASS             |
+| Output guardrail catch rate      | **1.000**         | >= 0.85      | PASS             |
+| Output guardrail false-flag rate | **0.000**         | <= 0.15      | PASS             |
+| Faithfulness mean (grounded)     | **5.00**          | >= 4.0       | PASS             |
 
 
 **Overall: FAIL (1 metric)** — grading FPR **0.125** on lookalike negatives (3 FP / 24 safe-negative cases). The grader wrongly called docs “relevant” for cross-repo memory-leak lookalikes (Deno↔Node↔Next.js). Threshold stays at `<= 0.10`; cases were **not** softened to force a green gate.
 
-Grading accuracy on the full set: **0.912** (34 cases). Retrieval lookalikes without negation cues still hit Recall@3 = 1.0; Precision@5 rose to **0.362** as more same-topic distractors land in top-k.
+Grading accuracy on the full set: **0.912** (34 cases). Retrieval lookalikes without negation cues still hit Recall@3 = 1.0; hybrid Precision@5 is **0.875** vs dense-only **0.362**.
 
 ## Testing
 
@@ -140,6 +153,8 @@ cd backend && source .venv/bin/activate
 RUN_INTEGRATION=1 .venv/bin/python -m pytest tests/integration/ -v
 python eval/run_all.py
 ```
+
+
 
 ## Thanks :)
 
