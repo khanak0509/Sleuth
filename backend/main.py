@@ -89,7 +89,7 @@ def incident(req: IncidentReq):
         "grade_reason": res["grade_reason"],
         "retrieved_docs": res["retrieved_docs"],
         "grade_relevant": res["grade_relevant"],
+        "rewritten_query": res.get("rewritten_query", ""),
         "rejected": False,
         "output_sanitized": not out_gate.safe,
     }
-    
