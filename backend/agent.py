@@ -18,6 +18,7 @@ class Grade(BaseModel):
 
 class AgentState(TypedDict):
     query: str
+    rewritten_query: str
     retrieved_docs: list
     grade: dict
     final_answer: str
@@ -38,8 +39,34 @@ def format_docs(docs):
     return "\n\n".join(lines)
 
 
+REWRITE_PROMPT = """Rewrite this GitHub incident query for retrieval.
+Fix typos. Expand vague phrasing into clear repo names and event types when implied
+(e.g. vs code/vscode -> microsoft/vscode, reakt -> facebook/react,
+hashi form/terraform -> hashicorp/terraform, grafna -> grafana/grafana,
+ci/build broken -> WorkflowRunEvent failure, issues -> IssuesEvent).
+Do not invent facts that are not implied by the query.
+Return only one short rewritten query line, nothing else.
+
+Query: {query}"""
+
+
+def rewrite_query_text(q: str) -> str:
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    prompt = PromptTemplate.from_template(REWRITE_PROMPT)
+    chain = prompt | llm | StrOutputParser()
+    rewritten = chain.invoke({"query": q}).strip().strip('"')
+    if rewritten.lower().startswith("query:"):
+        rewritten = rewritten[6:].strip()
+    return rewritten or q
+
+
+def rewrite_query(state: AgentState) -> dict:
+    return {"rewritten_query": rewrite_query_text(state["query"])}
+
+
 def retrieve(state: AgentState) -> dict:
-    docs = search(state["query"], k=5)
+    q = state.get("rewritten_query") or state["query"]
+    docs = search(q, k=5)
     return {"retrieved_docs": docs}
 
 
@@ -135,13 +162,15 @@ def pick_tool(state: AgentState) -> dict:
 
 def build_graph():
     g = StateGraph(AgentState)
+    g.add_node("rewrite_query", rewrite_query)
     g.add_node("retrieve", retrieve)
     g.add_node("grade", grade)
     g.add_node("answer", answer)
     g.add_node("fallback", fallback)
     g.add_node("pick_tool", pick_tool)
 
-    g.set_entry_point("retrieve")
+    g.set_entry_point("rewrite_query")
+    g.add_edge("rewrite_query", "retrieve")
     g.add_edge("retrieve", "grade")
     g.add_conditional_edges("grade", route_grade, {"answer": "answer", "fallback": "fallback"})
     g.add_edge("answer", "pick_tool")
@@ -156,6 +185,7 @@ graph = build_graph()
 def run_agent(q: str) -> dict:
     init: AgentState = {
         "query": q,
+        "rewritten_query": "",
         "retrieved_docs": [],
         "grade": {},
         "final_answer": "",
@@ -172,4 +202,5 @@ def run_agent(q: str) -> dict:
         "retrieved_docs": out.get("retrieved_docs") or [],
         "grade_relevant": (out.get("grade") or {}).get("relevant", False),
         "web_context": out.get("web_context", ""),
+        "rewritten_query": out.get("rewritten_query", ""),
     }
