@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -10,7 +11,8 @@ from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, VectorParams
+from rank_bm25 import BM25Okapi
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 load_dotenv()
@@ -19,16 +21,71 @@ COLL = "github_events"
 POLL_SEC = 5
 BATCH = 30
 SEED_FILE = Path(__file__).parent / "eval" / "testsets" / "retrieval_seed.json"
+CANDIDATE_K = 15
+RRF_K = 60
+EMBED_DIM = 1536
 
 GH_HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": "sleuth-rag"}
 github_token = os.getenv("GITHUB_TOKEN")
 if github_token:
     GH_HEADERS["Authorization"] = f"Bearer {github_token}"
 
-EMBED_DIM = 1536
+REPO_ALIASES = {
+    "vscode": "microsoft/vscode",
+    "kubernetes": "kubernetes/kubernetes",
+    "k8s": "kubernetes/kubernetes",
+    "react": "facebook/react",
+    "rust": "rust-lang/rust",
+    "tensorflow": "tensorflow/tensorflow",
+    "golang": "golang/go",
+    "linux": "torvalds/linux",
+    "node": "nodejs/node",
+    "nodejs": "nodejs/node",
+    "spark": "apache/spark",
+    "angular": "angular/angular",
+    "pytorch": "pytorch/pytorch",
+    "homebrew": "homebrew/brew",
+    "brew": "homebrew/brew",
+    "elasticsearch": "elastic/elasticsearch",
+    "next.js": "vercel/next.js",
+    "nextjs": "vercel/next.js",
+    "terraform": "hashicorp/terraform",
+    "deno": "denoland/deno",
+    "django": "django/django",
+    "redis": "redis/redis",
+    "grafana": "grafana/grafana",
+}
+
+EVENT_ALIASES = {
+    "workflow": "WorkflowRunEvent",
+    "workflows": "WorkflowRunEvent",
+    "workflowrun": "WorkflowRunEvent",
+    "ci": "WorkflowRunEvent",
+    "push": "PushEvent",
+    "pushes": "PushEvent",
+    "issue": "IssuesEvent",
+    "issues": "IssuesEvent",
+    "pr": "PullRequestEvent",
+    "prs": "PullRequestEvent",
+    "pull": "PullRequestEvent",
+    "pullrequest": "PullRequestEvent",
+    "watch": "WatchEvent",
+    "star": "WatchEvent",
+    "starred": "WatchEvent",
+    "fork": "ForkEvent",
+    "release": "ReleaseEvent",
+    "create": "CreateEvent",
+    "delete": "DeleteEvent",
+}
+
 embeddings = None
 qdrant_client = None
 vector_store = None
+cross_encoder = None
+
+bm25_index = None
+bm25_tokens = []
+bm25_docs = []
 
 
 def get_embeddings():
@@ -67,12 +124,40 @@ def get_vector_store():
         )
     return vector_store
 
+
+def get_cross_encoder():
+    global cross_encoder
+    if cross_encoder is None:
+        from sentence_transformers import CrossEncoder
+
+        cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    return cross_encoder
+
+
 stats = {
     "event_count": 0,
     "last_ts": None,
     "seen": set(),
     "running": False,
 }
+
+
+def tokenize(text):
+    return re.findall(r"[a-z0-9_./+-]+", (text or "").lower())
+
+
+def rebuild_bm25():
+    global bm25_index
+    bm25_index = BM25Okapi(bm25_tokens) if bm25_tokens else None
+
+
+def add_to_bm25(texts, metas):
+    for t, m in zip(texts, metas):
+        row = dict(m)
+        row["text"] = row.get("text") or t
+        bm25_docs.append(row)
+        bm25_tokens.append(tokenize(t))
+    rebuild_bm25()
 
 
 def flatten_event(ev):
@@ -158,6 +243,159 @@ def fetch_events():
         return r.json()
 
 
+def extract_filters(q):
+    q_low = (q or "").lower()
+    repos = []
+    et = None
+
+    for m in re.finditer(r"\b([a-z0-9_.-]+/[a-z0-9_.-]+)\b", q_low):
+        repos.append(m.group(1))
+
+    if not repos:
+        for alias, full in REPO_ALIASES.items():
+            if re.search(rf"\b{re.escape(alias)}\b", q_low):
+                if full not in repos:
+                    repos.append(full)
+
+    for alias, full in EVENT_ALIASES.items():
+        if re.search(rf"\b{re.escape(alias)}\b", q_low):
+            et = full
+            break
+
+    repo = repos[0] if len(repos) == 1 else None
+    return {"repo": repo, "event_type": et}
+
+
+def matches_filter(doc, filt):
+    if not filt:
+        return True
+    if filt.get("repo") and doc.get("repo", "").lower() != filt["repo"].lower():
+        return False
+    if filt.get("event_type") and doc.get("event_type") != filt["event_type"]:
+        return False
+    return True
+
+
+def doc_key(doc):
+    return f"{doc.get('repo','')}|{doc.get('event_type','')}|{doc.get('text','')}"
+
+
+def rrf_fuse(rank_lists, k=RRF_K):
+    scores = {}
+    docs_by_key = {}
+    for ranks in rank_lists:
+        for i, doc in enumerate(ranks):
+            key = doc_key(doc)
+            docs_by_key[key] = doc
+            scores[key] = scores.get(key, 0.0) + 1.0 / (k + i + 1)
+    ordered = sorted(scores.items(), key=lambda x: -x[1])
+    out = []
+    for key, score in ordered:
+        d = dict(docs_by_key[key])
+        d["score"] = score
+        out.append(d)
+    return out
+
+
+def bm25_search(q, k=CANDIDATE_K, filt=None):
+    if not bm25_index or not bm25_docs:
+        return []
+    scores = bm25_index.get_scores(tokenize(q))
+    ranked = sorted(range(len(scores)), key=lambda i: -scores[i])
+    out = []
+    for i in ranked:
+        doc = bm25_docs[i]
+        if not matches_filter(doc, filt):
+            continue
+        row = dict(doc)
+        row["score"] = float(scores[i])
+        out.append(row)
+        if len(out) >= k:
+            break
+    return out
+
+
+def vector_search(q, k=CANDIDATE_K, filt=None):
+    store = get_vector_store()
+    qdrant_filter = None
+    must = []
+    if filt and filt.get("repo"):
+        must.append(
+            FieldCondition(key="metadata.repo", match=MatchValue(value=filt["repo"]))
+        )
+    if filt and filt.get("event_type"):
+        must.append(
+            FieldCondition(
+                key="metadata.event_type", match=MatchValue(value=filt["event_type"])
+            )
+        )
+    if must:
+        qdrant_filter = Filter(must=must)
+
+    try:
+        hits = store.similarity_search_with_score(q, k=k, filter=qdrant_filter)
+    except Exception:
+        hits = store.similarity_search_with_score(q, k=k)
+
+    docs = []
+    for doc, score in hits:
+        meta = doc.metadata or {}
+        row = {
+            "text": meta.get("text", doc.page_content),
+            "repo": meta.get("repo", ""),
+            "event_type": meta.get("event_type", ""),
+            "timestamp": meta.get("timestamp", ""),
+            "score": float(score) if score is not None else 0.0,
+        }
+        if matches_filter(row, filt):
+            docs.append(row)
+    return docs
+
+
+def rerank(q, docs, top_k=5):
+    if not docs:
+        return []
+    if len(docs) == 1:
+        return docs[:top_k]
+    try:
+        model = get_cross_encoder()
+        pairs = [(q, d.get("text", "")) for d in docs]
+        scores = model.predict(pairs)
+        ranked = sorted(zip(docs, scores), key=lambda x: -float(x[1]))
+        out = []
+        for doc, score in ranked[:top_k]:
+            row = dict(doc)
+            row["score"] = float(score)
+            out.append(row)
+        return out
+    except Exception as e:
+        print(f"rerank fallback: {e}")
+        return docs[:top_k]
+
+
+def search(q, k=5, candidate_k=CANDIDATE_K, use_rerank=True, use_filter=True):
+    filt = extract_filters(q) if use_filter else {"repo": None, "event_type": None}
+    if not filt.get("repo") and not filt.get("event_type"):
+        filt = None
+
+    dense = vector_search(q, k=candidate_k, filt=filt)
+    sparse = bm25_search(q, k=candidate_k, filt=filt)
+
+    if not dense and not sparse:
+        return []
+    if not dense:
+        fused = sparse
+    elif not sparse:
+        fused = dense
+    else:
+        fused = rrf_fuse([dense, sparse])
+
+    fused = fused[:candidate_k]
+    if use_rerank:
+        return rerank(q, fused, top_k=k)
+    return fused[:k]
+
+
 def upsert_events(events):
     fresh = []
     for ev in events:
@@ -171,11 +409,12 @@ def upsert_events(events):
     if not fresh:
         return 0
 
-    get_vector_store().add_texts(
-        texts=[t for _, t, _ in fresh],
-        metadatas=[m for _, _, m in fresh],
-        ids=[eid for eid, _, _ in fresh],
-    )
+    texts = [t for _, t, _ in fresh]
+    metas = [m for _, _, m in fresh]
+    ids = [eid for eid, _, _ in fresh]
+
+    get_vector_store().add_texts(texts=texts, metadatas=metas, ids=ids)
+    add_to_bm25(texts, metas)
 
     stats["event_count"] += len(fresh)
     last = max((m["timestamp"] for _, _, m in fresh), default=None)
@@ -184,8 +423,36 @@ def upsert_events(events):
     return len(fresh)
 
 
+def reset_index(collection_name=COLL):
+    global vector_store, bm25_docs, bm25_tokens, bm25_index, qdrant_client
+    bm25_docs = []
+    bm25_tokens = []
+    bm25_index = None
+    vector_store = None
+    client = get_qdrant_client()
+    try:
+        client.delete_collection(collection_name)
+    except Exception:
+        pass
+    ensure_collection(client, collection_name)
+    vector_store = QdrantVectorStore(
+        client=client,
+        collection_name=collection_name,
+        embedding=get_embeddings(),
+    )
+    return vector_store
+
+
+def index_docs(texts, metas, ids):
+    get_vector_store().add_texts(texts=texts, metadatas=metas, ids=ids)
+    add_to_bm25(texts, metas)
+
+
+def dense_only_search(q, k=5):
+    return vector_search(q, k=k, filt=None)[:k]
+
+
 def seed_bootstrap():
-    """Warm-start the in-memory index so demo queries match eval coverage."""
     if not SEED_FILE.exists():
         return 0
     rows = json.loads(SEED_FILE.read_text())
@@ -216,27 +483,11 @@ def seed_bootstrap():
         return 0
 
     get_vector_store().add_texts(texts, metadatas=metas, ids=ids)
+    add_to_bm25(texts, metas)
     stats["event_count"] += len(texts)
     stats["last_ts"] = ts
     print(f"seeded {len(texts)} bootstrap events")
     return len(texts)
-
-
-def search(q, k=5):
-    hits = get_vector_store().similarity_search_with_score(q, k=k)
-    docs = []
-    for doc, score in hits:
-        meta = doc.metadata or {}
-        docs.append(
-            {
-                "text": meta.get("text", doc.page_content),
-                "repo": meta.get("repo", ""),
-                "event_type": meta.get("event_type", ""),
-                "timestamp": meta.get("timestamp", ""),
-                "score": float(score) if score is not None else 0.0,
-            }
-        )
-    return docs
 
 
 def ingest_loop(stop_evt: threading.Event | None = None):
