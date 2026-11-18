@@ -8,6 +8,7 @@ from langgraph.graph import END, StateGraph
 from pydantic import BaseModel
 
 from ingest import search
+from telemetry import timed
 from tools import ToolPick, log_tool, select_tool
 
 
@@ -162,12 +163,12 @@ def pick_tool(state: AgentState) -> dict:
 
 def build_graph():
     g = StateGraph(AgentState)
-    g.add_node("rewrite_query", rewrite_query)
-    g.add_node("retrieve", retrieve)
-    g.add_node("grade", grade)
-    g.add_node("answer", answer)
-    g.add_node("fallback", fallback)
-    g.add_node("pick_tool", pick_tool)
+    g.add_node("rewrite_query", timed("rewrite_query")(rewrite_query))
+    g.add_node("retrieve", timed("retrieve")(retrieve))
+    g.add_node("grade", timed("grade")(grade))
+    g.add_node("answer", timed("answer")(answer))
+    g.add_node("fallback", timed("fallback")(fallback))
+    g.add_node("pick_tool", timed("pick_tool")(pick_tool))
 
     g.set_entry_point("rewrite_query")
     g.add_edge("rewrite_query", "retrieve")
