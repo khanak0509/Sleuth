@@ -70,7 +70,8 @@ flowchart LR
 | `backend/agent.py`      | LangGraph: rewrite → retrieve → grade → answer/fallback → tool                     |
 | `backend/tools.py`      | Mock ops tools + structured selection (log only, no real infra)                    |
 | `backend/guardrails.py` | Input / output checks                                                              |
-| `backend/main.py`       | `POST /incident`, `GET /stream/status`                                             |
+| `backend/main.py`       | `POST /incident`, `GET /stream/status`, `GET /metrics/llm`                         |
+| `backend/telemetry.py`  | Per-request LLM traces: tokens, cost, latency, tokens/sec, per-stage breakdown     |
 | `frontend/`             | Corkboard UI                                                                       |
 
 
@@ -93,9 +94,15 @@ Retrieval is dense cosine + BM25 fused with RRF, optional payload filters when a
   "tool_used": "restart_pod | none | ...",
   "grade_reason": "...",
   "retrieved_docs": [],
-  "rejected": false
+  "rejected": false,
+  "metrics": {
+    "request_id": "...", "latency_ms": 0, "llm_calls": 0,
+    "input_tokens": 0, "output_tokens": 0, "cost_usd": 0, "output_tokens_per_sec": 0
+  }
 }
 ```
+
+`GET /metrics/llm`: rolling p50/p95/p99 latency, cost per request, tokens per request, output tokens/sec, path mix (direct / fallback / rejected) and per-stage latency and cost share.
 
 `GET /stream/status` → `{ event_count, last_ingested_timestamp, running }`
 
@@ -124,6 +131,26 @@ python eval/run_all.py
 | Faithfulness mean (grounded)     | **5.00**          | >= 4.0       | PASS     |
 
 Hybrid retrieval (BM25 + dense + RRF + rerank) raised Precision@5 from **0.362** to **0.875**. Query rewrite raised vague-query Recall@3 from **0.800** to **1.000**. Grading FPR is **0.125** (threshold `<= 0.10`) on cross-repo lookalike negatives — left as measured. Full per-query tables: `backend/eval/results_retrieval.md`.
+
+## Observability
+
+`backend/telemetry.py` traces every `/incident` request without touching each LLM call site:
+
+- A LangChain callback handler is registered with `register_configure_hook`, so every `ChatOpenAI` call made during a request (LangGraph nodes, guardrails, tool selection) is recorded with model, input/output tokens, latency and cost.
+- Graph nodes are wrapped with `timed(...)`, and guardrails with `stage(...)`, so each LLM call is attributed to a pipeline stage.
+- Each request emits one structured JSON log line with the full span list, tagged with the W3C `traceparent` trace id when the caller sends one.
+- `GET /metrics/llm` aggregates the last 1000 requests.
+
+Cost uses a static price table (USD per 1M tokens, override with `LLM_PRICING_JSON`). Query embeddings don't emit LangChain callbacks, so their (tiny) cost isn't counted; their latency is inside the `retrieve` stage. Tokens/sec is measured on non-streaming calls, so it includes network time.
+
+Benchmark a running server:
+
+```bash
+cd backend && source .venv/bin/activate
+python eval/bench_llm_metrics.py                       # local, http://127.0.0.1:8000
+```
+
+Writes `eval/results_llm_<label>.md` and `eval/metrics_llm_<label>.json`.
 
 ## Testing
 

@@ -1,0 +1,106 @@
+{
+  "label": "local",
+  "url": "http://127.0.0.1:8000",
+  "requests": 50,
+  "success_rate": 1.0,
+  "concurrency": 1,
+  "throughput_rps": 0.126,
+  "client_latency_ms": {
+    "p50": 7764.1,
+    "p95": 15571.0,
+    "mean": 7946.6
+  },
+  "cost_per_request_usd": {
+    "mean": 0.000332,
+    "p95": 0.000569,
+    "per_1k_requests": 0.332
+  },
+  "tokens_per_request_mean": 1586.9,
+  "output_tokens_per_sec_median": 29.9,
+  "paths": {
+    "direct": 32,
+    "fallback": 9,
+    "rejected": 9
+  },
+  "cold_start": {
+    "first_response_s": 2.0,
+    "index_warm_s": 4.0
+  },
+  "server_snapshot": {
+    "requests": 51,
+    "errors": 0,
+    "latency_ms": {
+      "p50": 7791.2,
+      "p95": 15892.0,
+      "p99": 19990.1,
+      "mean": 8138.4
+    },
+    "cost_per_request_usd": {
+      "mean": 0.000337,
+      "p95": 0.000585,
+      "total": 0.017208
+    },
+    "tokens_per_request": {
+      "mean": 1610.2,
+      "p95": 2774
+    },
+    "llm_calls_per_request": 5.12,
+    "output_tokens_per_sec": 32.5,
+    "paths": {
+      "direct": 33,
+      "fallback": 9,
+      "rejected": 9
+    },
+    "stages": {
+      "answer": {
+        "p50_ms": 1857.0,
+        "p95_ms": 3268.2,
+        "cost_share": 0.191,
+        "tokens": 11705
+      },
+      "fallback": {
+        "p50_ms": 8496.7,
+        "p95_ms": 14058.0,
+        "cost_share": 0.116,
+        "tokens": 5606
+      },
+      "grade": {
+        "p50_ms": 1240.2,
+        "p95_ms": 1585.4,
+        "cost_share": 0.167,
+        "tokens": 13704
+      },
+      "input_guardrail": {
+        "p50_ms": 1149.3,
+        "p95_ms": 1527.0,
+        "cost_share": 0.144,
+        "tokens": 10814
+      },
+      "output_guardrail": {
+        "p50_ms": 899.6,
+        "p95_ms": 1215.3,
+        "cost_share": 0.16,
+        "tokens": 17290
+      },
+      "pick_tool": {
+        "p50_ms": 882.4,
+        "p95_ms": 1553.5,
+        "cost_share": 0.163,
+        "tokens": 17508
+      },
+      "retrieve": {
+        "p50_ms": 621.3,
+        "p95_ms": 1156.8,
+        "cost_share": 0.0,
+        "tokens": 0
+      },
+      "rewrite_query": {
+        "p50_ms": 888.0,
+        "p95_ms": 1188.2,
+        "cost_share": 0.06,
+        "tokens": 5493
+      }
+    },
+    "window_started_at": 1795073573.839488
+  }
+}

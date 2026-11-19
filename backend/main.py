@@ -3,13 +3,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agent import run_agent
 from guardrails import REJECT_MSG, check_input, check_output, sanitize_answer
 from ingest import start_ingest_thread, stats
+from telemetry import METRICS, parse_trace_header, request_trace, stage
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 load_dotenv()
@@ -52,35 +53,38 @@ def stream_status():
     }
 
 
-@app.post("/incident")
-def incident(req: IncidentReq):
-    q = (req.query or "").strip()
-    if not q:
-        return {
-            "answer": "Empty query.",
-            "path_taken": "rejected",
-            "tool_used": "none",
-            "grade_reason": "",
-            "retrieved_docs": [],
-            "rejected": True,
-        }
+@app.get("/metrics/llm")
+def llm_metrics():
+    return METRICS.snapshot()
 
-    gate = check_input(q)
+
+def rejected(answer: str, reason: str = "") -> dict:
+    return {
+        "answer": answer,
+        "path_taken": "rejected",
+        "tool_used": "none",
+        "grade_reason": reason,
+        "retrieved_docs": [],
+        "rejected": True,
+    }
+
+
+def handle_incident(q: str) -> dict:
+    if not q:
+        return rejected("Empty query.")
+
+    with stage("input_guardrail"):
+        gate = check_input(q)
     if not gate.safe:
-        return {
-            "answer": REJECT_MSG + f" ({gate.reason})",
-            "path_taken": "rejected",
-            "tool_used": "none",
-            "grade_reason": gate.reason,
-            "retrieved_docs": [],
-            "rejected": True,
-        }
+        return rejected(REJECT_MSG + f" ({gate.reason})", gate.reason)
 
     res = run_agent(q)
-    out_gate = check_output(res["answer"])
+    with stage("output_guardrail"):
+        out_gate = check_output(res["answer"])
     answer = res["answer"]
     if not out_gate.safe:
-        answer = sanitize_answer(answer, out_gate.issues)
+        with stage("sanitize"):
+            answer = sanitize_answer(answer, out_gate.issues)
 
     return {
         "answer": answer,
@@ -93,3 +97,25 @@ def incident(req: IncidentReq):
         "rejected": False,
         "output_sanitized": not out_gate.safe,
     }
+
+
+@app.post("/incident")
+def incident(req: IncidentReq, request: Request, response: Response):
+    with request_trace(parse_trace_header(request.headers)) as tr:
+        result = handle_incident((req.query or "").strip())
+        tr.path = result["path_taken"]
+    s = tr.summary()
+    response.headers["X-Request-ID"] = tr.request_id
+    result["metrics"] = {
+        k: s[k]
+        for k in (
+            "request_id",
+            "latency_ms",
+            "llm_calls",
+            "input_tokens",
+            "output_tokens",
+            "cost_usd",
+            "output_tokens_per_sec",
+        )
+    }
+    return result
