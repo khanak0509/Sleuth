@@ -72,7 +72,7 @@ class Span:
 @dataclass
 class RequestTrace:
     request_id: str = field(default_factory=lambda: uuid.uuid4().hex[:16])
-    cloud_trace_id: str | None = None
+    trace_id: str | None = None
     path: str | None = None
     error: str | None = None
     spans: list[Span] = field(default_factory=list)
@@ -367,11 +367,6 @@ def parse_trace_header(headers) -> str | None:
         parts = tp.split("-")
         if len(parts) >= 2 and len(parts[1]) == 32:
             return parts[1]
-    xc = headers.get("x-cloud-trace-context")
-    if xc:
-        tid = xc.split("/")[0].strip()
-        if tid:
-            return tid
     return None
 
 
@@ -384,15 +379,14 @@ def log_trace(tr: RequestTrace, summary: dict) -> None:
         **summary,
         "spans": [asdict(s) for s in sorted(tr.spans, key=lambda s: s.start_ms)],
     }
-    project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    if project and tr.cloud_trace_id:
-        entry["logging.googleapis.com/trace"] = f"projects/{project}/traces/{tr.cloud_trace_id}"
+    if tr.trace_id:
+        entry["trace_id"] = tr.trace_id
     print(json.dumps(entry, default=str), flush=True)
 
 
 @contextmanager
-def request_trace(cloud_trace_id: str | None = None, store: MetricsStore | None = None, log: bool = True):
-    tr = RequestTrace(cloud_trace_id=cloud_trace_id)
+def request_trace(trace_id: str | None = None, store: MetricsStore | None = None, log: bool = True):
+    tr = RequestTrace(trace_id=trace_id)
     t_token = _trace_var.set(tr)
     h_token = _handler_var.set(HANDLER)
     try:

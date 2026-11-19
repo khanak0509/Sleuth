@@ -72,7 +72,6 @@ flowchart LR
 | `backend/guardrails.py` | Input / output checks                                                              |
 | `backend/main.py`       | `POST /incident`, `GET /stream/status`, `GET /metrics/llm`                         |
 | `backend/telemetry.py`  | Per-request LLM traces: tokens, cost, latency, tokens/sec, per-stage breakdown     |
-| `deploy/cloudrun.sh`    | Cloud Run deploy (Cloud Build, Secret Manager, IAM)                                |
 | `frontend/`             | Corkboard UI                                                                       |
 
 
@@ -139,7 +138,7 @@ Hybrid retrieval (BM25 + dense + RRF + rerank) raised Precision@5 from **0.362**
 
 - A LangChain callback handler is registered with `register_configure_hook`, so every `ChatOpenAI` call made during a request (LangGraph nodes, guardrails, tool selection) is recorded with model, input/output tokens, latency and cost.
 - Graph nodes are wrapped with `timed(...)`, and guardrails with `stage(...)`, so each LLM call is attributed to a pipeline stage.
-- Each request emits one structured JSON log line with the full span list. On Cloud Run this becomes a Cloud Logging entry linked to the request trace (`logging.googleapis.com/trace`).
+- Each request emits one structured JSON log line with the full span list, tagged with the W3C `traceparent` trace id when the caller sends one.
 - `GET /metrics/llm` aggregates the last 1000 requests.
 
 Cost uses a static price table (USD per 1M tokens, override with `LLM_PRICING_JSON`). Query embeddings don't emit LangChain callbacks, so their (tiny) cost isn't counted; their latency is inside the `retrieve` stage. Tokens/sec is measured on non-streaming calls, so it includes network time.
@@ -152,25 +151,6 @@ python eval/bench_llm_metrics.py                       # local, http://127.0.0.1
 ```
 
 Writes `eval/results_llm_<label>.md` and `eval/metrics_llm_<label>.json`.
-
-## Deploy to Cloud Run
-
-```bash
-gcloud auth login
-export PROJECT_ID=your-gcp-project-id
-read -rs OPENAI_API_KEY && export OPENAI_API_KEY      # paste, Enter
-export GITHUB_TOKEN=ghp_...                           # optional, recommended
-./deploy/cloudrun.sh
-```
-
-The script enables the APIs, stores keys in Secret Manager, and runs a source deploy (Cloud Build → Artifact Registry → Cloud Run). The service needs an identity token to call, scales to zero, and runs on one instance because the index is held in memory. The image uses CPU-only torch and bakes in the cross-encoder so cold starts don't download it.
-
-Benchmark the deployed service:
-
-```bash
-URL=$(gcloud run services describe sleuth-api --region asia-south1 --format 'value(status.url)')
-python eval/bench_llm_metrics.py --url "$URL" --token "$(gcloud auth print-identity-token)" --label cloudrun
-```
 
 ## Testing
 

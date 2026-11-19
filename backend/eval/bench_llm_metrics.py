@@ -47,7 +47,7 @@ def wait_ready(c, timeout):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default="http://127.0.0.1:8000")
-    ap.add_argument("--token", default=None, help="Bearer token (gcloud auth print-identity-token)")
+    ap.add_argument("--token", default=None, help="optional bearer token")
     ap.add_argument("--label", default="local")
     ap.add_argument("--limit", type=int, default=0, help="max queries (0 = all)")
     ap.add_argument("--concurrency", type=int, default=1)

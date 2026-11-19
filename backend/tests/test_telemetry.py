@@ -123,15 +123,14 @@ def test_snapshot_aggregates():
     assert snap["cost_per_request_usd"]["p95"] >= snap["cost_per_request_usd"]["mean"]
 
 
-def test_log_line_has_cloud_trace_field(capsys, monkeypatch):
+def test_log_line_has_trace_id(capsys):
     import json
 
-    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "demo-proj")
-    with request_trace(cloud_trace_id="abc123", store=MetricsStore()) as tr:
+    with request_trace(trace_id="abc123", store=MetricsStore()) as tr:
         tr.path = "rejected"
     line = capsys.readouterr().out.strip().splitlines()[-1]
     entry = json.loads(line)
-    assert entry["logging.googleapis.com/trace"] == "projects/demo-proj/traces/abc123"
+    assert entry["trace_id"] == "abc123"
     assert entry["severity"] == "INFO"
     assert entry["path"] == "rejected"
 
@@ -139,7 +138,4 @@ def test_log_line_has_cloud_trace_field(capsys, monkeypatch):
 def test_parse_trace_header():
     tid = "4bf92f3577b34da6a3ce929d0e0e4736"
     assert parse_trace_header({"traceparent": f"00-{tid}-00f067aa0ba902b7-01"}) == tid
-    assert parse_trace_header({"x-cloud-trace-context": "105445aa7843bc8bf206b120001000/1;o=1"}) == (
-        "105445aa7843bc8bf206b120001000"
-    )
     assert parse_trace_header({}) is None
